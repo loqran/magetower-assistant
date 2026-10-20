@@ -1,7 +1,7 @@
 [project]
 name = "magetower-assistant"
 version = "0.1.0"
-description = "Add your description here"
+description = "Name TBD, magetower-assistant will be a CTF and Competition assistant when it comes to creating documentation, and identifying usefull tools for challenges. It will run a local model Granite3.3:8B"
 readme = "README.md"
 authors = [
     { name = "loqran", email = "325322671+loqran@users.noreply.github.com" }

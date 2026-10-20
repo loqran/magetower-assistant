@@ -1,0 +1,11 @@
+# Competition assistant runtime config
+
+[llm]
+host = "http://localhost:11434"
+model = "granite3.3:8b"
+temperature = 0.3	# low = more consistent and methodological answers
+num_ctx = 8192		# context window
+
+[chat]
+max_history_turns = 10 # context kept
+

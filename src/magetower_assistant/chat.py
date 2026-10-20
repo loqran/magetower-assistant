@@ -1,0 +1,102 @@
+"""
+Minimal terminal chat loop against the local model (Stage 1).
+
+Commands:
+    /reset  clear conversation history
+    /quit   exit (Ctrl-D works too)
+"""
+
+from __future__ import annotations
+
+import sys
+
+from .config import load_config
+from .llm import Message, OllamaClient, OllamaError
+
+# first draft of the role prompt, refined in Stage 4
+SYSTEM_PROMPT = """\
+You are a methodology and tool-selection guide for CTF challenges and \
+sanctioned security competitions. The user describes what they are seeing; you help them \
+work out the approach. The user runs every command themselves.
+
+For each question:
+1. Identify the likely challenge category (web, pwn, crypto, forensics, reversing, \
+OSINT, misc, etc.) and say how confident you are.
+2. Suggest the tools that fit and explain *why* each one fits.
+3. Outline the methodology as ordered steps, with what to look for at each step.
+4. Point to references (MITRE ATT&CK, CWE, OWASP, tool documentation) where relevant.
+
+Rules:
+- You are a guide, not an exploit generator. Explain techniques and tool usage, but do \
+not write finished, weaponized exploits aimed at specific real-world targets.
+- Assume an authorized context (the user's own lab or a sanctioned competition). If a \
+request clearly targets systems outside that scope, decline and say why.
+- If you are unsure, say so and suggest how the user could find out. Do not invent tool \
+flags or CVE numbers.
+- Be concise and structured.
+"""
+
+
+def _trim(history: list[Message], max_turns: int) -> list[Message]:
+    """Keep the system prompt plus the last `max_turns` user/assistant exchanges."""
+    system, rest = history[:1], history[1:]
+    return system + rest[-max_turns * 2 :]
+
+
+def main() -> int:
+    cfg = load_config()
+    client = OllamaClient(cfg.llm)
+
+    try:
+        client.check()
+    except OllamaError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+
+    src = cfg.source or "built-in defaults"
+    print(f"magetower-assistant | model {cfg.llm.model} | config: {src}")
+    print("Describe what you're seeing. /reset clears history, /quit exits.\n")
+
+    history: list[Message] = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    while True:
+        try:
+            user = input("you> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return 0
+
+        if not user:
+            continue
+        if user in ("/quit", "/exit"):
+            return 0
+        if user == "/reset":
+            history = history[:1]
+            print("(history cleared)\n")
+            continue
+
+        history.append({"role": "user", "content": user})
+        history = _trim(history, cfg.chat.max_history_turns)
+
+        print("guide> ", end="", flush=True)
+        parts: list[str] = []
+        try:
+            for chunk in client.stream_chat(history):
+                print(chunk, end="", flush=True)
+                parts.append(chunk)
+        except KeyboardInterrupt:
+            print("\n(interrupted)")
+        except OllamaError as e:
+            print(f"\nerror: {e}", file=sys.stderr)
+            history.pop()  # drop the unanswered question
+            continue
+        print("\n")
+
+        if parts:
+            history.append({"role": "assistant", "content": "".join(parts)})
+        else:
+            history.pop()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
