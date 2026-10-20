@@ -14,3 +14,4 @@ PROJECT_PLAN.md
 
 # Vector store (rebuilt by magetower-ingest)
 data/
+evals/

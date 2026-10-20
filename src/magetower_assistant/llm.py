@@ -83,8 +83,8 @@ class OllamaClient:
             return json.load(resp)["embeddings"]
 
     # -- chat
-    def stream_chat(self, messages: list[Message]) -> Iterator[str]:
-        """Yield response text chuncks as they arrive (NDJSON)"""
+    def stream_chat(self, messages: list[Message], **options) -> Iterator[str]:
+        """Yield response text chuncks as they arrive (NDJSON); options override config"""
         payload = {
             "model": self.cfg.model,
             "messages": messages,
@@ -92,6 +92,7 @@ class OllamaClient:
             "options": {
                 "temperature": self.cfg.temperature,
                 "num_ctx": self.cfg.num_ctx,
+                **options,
             },
         }
         with self._open("/api/chat", payload) as resp:

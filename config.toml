@@ -8,6 +8,7 @@ num_ctx = 8192		# context window
 
 [chat]
 max_history_turns = 10 # context kept
+prompt = "system_v1"	# prompts/<name>.md
 
 
 [rag]
@@ -18,3 +19,4 @@ embed_model = "nomic-embed-text"
 active_corpora = []		# specialist corpora on top of baseline, e.g. ["maritime"]
 top_k = 4
 max_distance = 0.4		# cosine distance cutoff; relevant ~0.2-0.4, off-topic ~0.45+ (recalibrate in Stage 3)
+context_style = "inline"	# "inline" or "native" (Granite document roles)

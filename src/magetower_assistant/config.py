@@ -29,6 +29,7 @@ class LLMConfig:
 @dataclass
 class ChatConfig:
     max_history_turns: int = 10
+    prompt: str = "system_v1"  # prompts/<name>.md
 
 
 @dataclass
@@ -42,6 +43,8 @@ class RAGConfig:
     top_k: int = 4
     # cosine distance cutoff, hits further away than this are dropped
     max_distance: float = 0.4
+    # "inline": notes pasted into the user message, "native": Granite document roles
+    context_style: str = "inline"
 
 
 @dataclass
