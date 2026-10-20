@@ -32,9 +32,23 @@ class ChatConfig:
 
 
 @dataclass
+class RAGConfig:
+    enabled: bool = True
+    kb_dir: Path = Path("kb")
+    db_path: Path = Path("data/chroma")
+    embed_model: str = "nomic-embed-text"
+    # baseline is always on; these specialist corpora are added on top
+    active_corpora: list[str] = field(default_factory=list)
+    top_k: int = 4
+    # cosine distance cutoff, hits further away than this are dropped
+    max_distance: float = 0.4
+
+
+@dataclass
 class Config:
     llm: LLMConfig = field(default_factory=LLMConfig)
     chat: ChatConfig = field(default_factory=ChatConfig)
+    rag: RAGConfig = field(default_factory=RAGConfig)
     source: Path | None = None
 
 
@@ -54,7 +68,9 @@ def _find_config_file() -> Path | None:
 def load_config() -> Config:
     path = _find_config_file()
     if path is None:
-        return Config()
+        cfg = Config()
+        _resolve_paths(cfg.rag, PROJECT_ROOT)
+        return cfg
 
     with path.open("rb") as f:
         raw: dict[str, Any] = tomllib.load(f)
@@ -64,8 +80,18 @@ def load_config() -> Config:
         known = cls.__dataclass_fields__.keys()
         return cls(**{k: v for k, v in section.items() if k in known})
 
+    rag = pick(RAGConfig, raw.get("rag", {}))
+    _resolve_paths(rag, path.parent)
+
     return Config(
         llm=pick(LLMConfig, raw.get("llm", {})),
         chat=pick(ChatConfig, raw.get("chat", {})),
+        rag=rag,
         source=path,
     )
+
+
+def _resolve_paths(rag: RAGConfig, base: Path) -> None:
+    # relative paths are relative to the config file, not the cwd
+    rag.kb_dir = (base / Path(rag.kb_dir).expanduser()).resolve()
+    rag.db_path = (base / Path(rag.db_path).expanduser()).resolve()

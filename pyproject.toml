@@ -7,10 +7,13 @@ authors = [
     { name = "loqran", email = "325322671+loqran@users.noreply.github.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "chromadb==1.5.9",
+]
 
 [project.scripts]
 magetower-assistant = "magetower_assistant:main"
+magetower-ingest = "magetower_assistant.ingest:main"
 
 [build-system]
 requires = ["uv_build>=0.13.1,<0.14.0"]

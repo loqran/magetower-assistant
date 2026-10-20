@@ -61,21 +61,26 @@ class OllamaClient:
 
     # -- health
 
-    def check(self) -> None:
-        """Fail fast with usefull mesage if ollama is down or model isn't pulled"""
+    def check(self, *extra_models: str) -> None:
+        """Fail fast with usefull mesage if ollama is down or a model isn't pulled"""
         with self._open("/api/tags", timeout=5.0) as resp:
             models = json.load(resp).get("models", [])
 
         names = {m.get("name", "") for m in models}
-        wanted = self.cfg.model
 
-        # granite3.3:8b should match itself
+        # granite3.3:8b should match itself, nomic-embed-text matches its :latest tag
+        for wanted in (self.cfg.model, *extra_models):
+            if wanted not in names and f"{wanted}:latest" not in names:
+                raise OllamaError(
+                    f"Model '{wanted}' isn't pulled. -> Run ollama pull {wanted}\n"
+                    f"available: {', '.join(sorted(names)) or '(none)'}"
+                )
 
-        if wanted not in names and f"{wanted}:latest" not in names:
-            raise OllamaError(
-                f"Model '{wanted}' isn't pulled. -> Run Ollama pull {wanted}\n"
-                f"available: {', '.join(sorted(names)) or '(none)'}"
-            )
+    # -- embeddings
+    def embed(self, texts: list[str], model: str) -> list[list[float]]:
+        """Embed a batch of texts with an Ollama embedding model"""
+        with self._open("/api/embed", {"model": model, "input": texts}) as resp:
+            return json.load(resp)["embeddings"]
 
     # -- chat
     def stream_chat(self, messages: list[Message]) -> Iterator[str]:

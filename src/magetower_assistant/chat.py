@@ -12,6 +12,7 @@ import sys
 
 from .config import load_config
 from .llm import Message, OllamaClient, OllamaError
+from .rag import BASELINE, Hit, KnowledgeBase, format_context
 
 # first draft of the role prompt, refined in Stage 4
 SYSTEM_PROMPT = """\
@@ -33,6 +34,9 @@ not write finished, weaponized exploits aimed at specific real-world targets.
 request clearly targets systems outside that scope, decline and say why.
 - If you are unsure, say so and suggest how the user could find out. Do not invent tool \
 flags or CVE numbers.
+- When reference notes are provided, prefer them over general knowledge and cite them \
+by number, e.g. [1]. If they don't cover the question, say so and answer from general \
+knowledge.
 - Be concise and structured.
 """
 
@@ -47,14 +51,26 @@ def main() -> int:
     cfg = load_config()
     client = OllamaClient(cfg.llm)
 
+    kb: KnowledgeBase | None = None
     try:
-        client.check()
-    except OllamaError as e:
+        if cfg.rag.enabled:
+            client.check(cfg.rag.embed_model)
+            kb = KnowledgeBase(cfg.rag, client)
+        else:
+            client.check()
+    except (OllamaError, RuntimeError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 
     src = cfg.source or "built-in defaults"
     print(f"magetower-assistant | model {cfg.llm.model} | config: {src}")
+    if kb is None:
+        print("knowledge base: disabled")
+    else:
+        corpora = ", ".join([BASELINE, *cfg.rag.active_corpora])
+        print(f"knowledge base: {kb.count()} chunks | corpora: {corpora}")
+        if kb.count() == 0:
+            print("  (empty, run magetower-ingest)")
     print("Describe what you're seeing. /reset clears history, /quit exits.\n")
 
     history: list[Message] = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -78,10 +94,23 @@ def main() -> int:
         history.append({"role": "user", "content": user})
         history = _trim(history, cfg.chat.max_history_turns)
 
+        # retrieved notes go into this request only; history keeps the bare question
+        # so old context doesn't pile up across turns
+        hits: list[Hit] = []
+        messages = history
+        if kb is not None:
+            try:
+                hits = kb.retrieve(user)
+            except OllamaError as e:
+                print(f"(retrieval failed: {e})", file=sys.stderr)
+            messages = history[:-1] + [
+                {"role": "user", "content": format_context(hits, user)}
+            ]
+
         print("guide> ", end="", flush=True)
         parts: list[str] = []
         try:
-            for chunk in client.stream_chat(history):
+            for chunk in client.stream_chat(messages):
                 print(chunk, end="", flush=True)
                 parts.append(chunk)
         except KeyboardInterrupt:
@@ -91,6 +120,10 @@ def main() -> int:
             history.pop()  # drop the unanswered question
             continue
         print("\n")
+        for i, h in enumerate(hits, start=1):
+            print(f"  [{i}] {h.label} ({h.distance:.2f})")
+        if hits:
+            print()
 
         if parts:
             history.append({"role": "assistant", "content": "".join(parts)})
