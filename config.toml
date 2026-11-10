@@ -8,12 +8,12 @@ num_ctx = 8192		# context window
 
 [chat]
 max_history_turns = 10 # context kept
-prompt = "system_v1"	# prompts/<name>.md
+prompt = "system_v3"	# prompts/<name>.md
 
 
 [rag]
 enabled = true
-kb_dir = "kb"			# <kb_dir>/<corpus>/**/*.md, only `vetted: true` notes are ingested
+kb_dir = "~/Documents/Obsidian/Magetower"	# <kb_dir>/<corpus>/**/*.md, only `vetted: true` notes are ingested
 db_path = "data/chroma"
 embed_model = "nomic-embed-text"
 active_corpora = []		# specialist corpora on top of baseline, e.g. ["maritime"]

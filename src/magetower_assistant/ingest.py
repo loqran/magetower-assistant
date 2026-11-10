@@ -23,17 +23,21 @@ def main() -> int:
     client = OllamaClient(cfg.llm)
     try:
         client.check(cfg.rag.embed_model)
-        chunks, skipped = load_notes(cfg.rag.kb_dir)
+        notes = load_notes(cfg.rag.kb_dir)
         kb = KnowledgeBase(cfg.rag, client, fresh=True)
-        kb.ingest(chunks)
+        kb.ingest(notes.chunks)
     except OllamaError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 
-    for corpus, n in sorted(Counter(c.corpus for c in chunks).items()):
-        print(f"  {corpus}: {n} chunks")
-    for path in skipped:
+    print(f"kb: {cfg.rag.kb_dir}")
+    counts = Counter((c.corpus, c.type or "untyped") for c in notes.chunks)
+    for (corpus, kind), n in sorted(counts.items()):
+        print(f"  {corpus}/{kind}: {n} chunks")
+    for path in notes.skipped:
         print(f"  skipped (not vetted): {path}")
+    for path, reason in notes.invalid:
+        print(f"  invalid: {path}: {reason}", file=sys.stderr)
     print(f"done, {kb.count()} chunks in store")
     return 0
 

@@ -29,7 +29,7 @@ class LLMConfig:
 @dataclass
 class ChatConfig:
     max_history_turns: int = 10
-    prompt: str = "system_v1"  # prompts/<name>.md
+    prompt: str = "system_v3"  # prompts/<name>.md
 
 
 @dataclass
